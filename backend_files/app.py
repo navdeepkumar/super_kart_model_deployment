@@ -1,12 +1,16 @@
 """
 Flask backend for the SuperKart sales forecasting model.
 
-Two endpoints:
-  POST /v1/predict       online inference for a single product-store record (JSON body)
-  POST /v1/predictbatch  batch inference for a CSV file of records (multipart/form-data)
+Four endpoints:
+  POST   /v1/predict       online inference for a single product-store record (JSON body)
+  POST   /v1/predictbatch  batch inference for a CSV file of records (multipart/form-data)
+  GET    /v1/history       the most recently recorded predictions, newest first
+  DELETE /v1/history       clears all recorded prediction history
 
 The serialized pipeline (preprocessing plus trained regressor) loads once at
-process start and is reused across requests.
+process start and is reused across requests. Every successful prediction,
+single or batch, is also recorded to a small SQLite file through
+history_store, so a user can revisit what was asked and what came back.
 """
 
 import io
@@ -16,6 +20,8 @@ import joblib
 import pandas as pd
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+
+import history_store
 
 superkart_api = Flask(__name__)
 
@@ -28,6 +34,7 @@ CORS(superkart_api)
 
 MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "superkart_model.joblib")
 model = joblib.load(MODEL_PATH)
+history_store.init_db()
 
 # Column order the trained pipeline expects. Kept as an explicit list rather
 # than inferring it from the model, so a malformed request fails with a clear
@@ -52,13 +59,31 @@ def _validate_columns(frame: pd.DataFrame) -> None:
         raise ValueError(f"Missing required column(s): {missing}")
 
 
+def _record_history_safely(mode, summary, input_data, result_data):
+    """Persists a prediction, but never lets a storage problem fail the request.
+
+    The caller is waiting on the actual prediction, already computed by the
+    time this runs. A full disk or a locked database file should show up in
+    the server logs, not as a 500 on an otherwise successful prediction.
+    """
+    try:
+        history_store.record_prediction(mode, summary, input_data, result_data)
+    except Exception:
+        superkart_api.logger.warning("Failed to record prediction history", exc_info=True)
+
+
 @superkart_api.get("/")
 def home():
     """Health check and a quick pointer to the available endpoints."""
     return jsonify(
         {
             "message": "SuperKart Sales Forecasting API is up and running.",
-            "endpoints": ["/v1/predict [POST]", "/v1/predictbatch [POST]"],
+            "endpoints": [
+                "/v1/predict [POST]",
+                "/v1/predictbatch [POST]",
+                "/v1/history [GET]",
+                "/v1/history [DELETE]",
+            ],
         }
     )
 
@@ -81,7 +106,15 @@ def predict():
         # the caller can act on, not a 500 with a stack trace.
         return jsonify({"error": str(exc)}), 400
 
-    return jsonify({"Product_Store_Sales_Total_Prediction": round(float(prediction), 2)})
+    prediction = round(float(prediction), 2)
+    summary = (
+        f"{payload.get('Product_Type_Category', 'Product')} at a "
+        f"{payload.get('Store_Size', '?')} {payload.get('Store_Type', 'store')}"
+    )
+    _record_history_safely(
+        "single", summary, payload, {"Product_Store_Sales_Total_Prediction": prediction}
+    )
+    return jsonify({"Product_Store_Sales_Total_Prediction": prediction})
 
 
 @superkart_api.post("/v1/predictbatch")
@@ -100,7 +133,32 @@ def predict_batch():
 
     # Keys are stringified row positions, values are the matching predictions
     response = {str(idx): round(float(pred), 2) for idx, pred in enumerate(predictions)}
+    summary = f"{file.filename or 'batch file'}, {len(response)} record(s)"
+    _record_history_safely(
+        "batch", summary, {"filename": file.filename, "row_count": len(response)}, response
+    )
     return jsonify(response)
+
+
+@superkart_api.get("/v1/history")
+def get_history():
+    """Returns the most recently recorded predictions, newest first."""
+    raw_limit = request.args.get("limit", default="50")
+    try:
+        limit = int(raw_limit)
+        if limit < 1:
+            raise ValueError
+    except ValueError:
+        return jsonify({"error": "limit must be a positive integer."}), 400
+
+    return jsonify({"predictions": history_store.fetch_history(limit)})
+
+
+@superkart_api.delete("/v1/history")
+def delete_history():
+    """Clears all recorded prediction history."""
+    history_store.clear_history()
+    return jsonify({"message": "History cleared."})
 
 
 if __name__ == "__main__":

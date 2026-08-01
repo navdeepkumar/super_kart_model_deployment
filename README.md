@@ -29,7 +29,8 @@ deleted.
 ```
 super_kart_model_deployment/
 ├── backend_files/
-│   ├── app.py                    # Flask API: /v1/predict and /v1/predictbatch, CORS enabled
+│   ├── app.py                    # Flask API: /v1/predict, /v1/predictbatch, /v1/history, CORS enabled
+│   ├── history_store.py          # SQLite-backed persistence for prediction history
 │   ├── requirements.txt
 │   ├── Dockerfile
 │   └── superkart_model.joblib    # trained pipeline (preprocessing + model)
@@ -38,7 +39,7 @@ super_kart_model_deployment/
     ├── env.js                    # default backend URL for local, no-Docker use
     ├── src/
     │   ├── tokens.css            # design tokens (colors, spacing, type)
-    │   └── app.js                # every custom element: wizard steps, <app-shell>, API client
+    │   └── app.js                # every custom element: wizard steps, nav pages, <app-shell>, API client
     ├── Dockerfile                # Nginx-based, static files only, no Node build step
     ├── nginx.conf
     └── docker-entrypoint.d/
@@ -46,12 +47,30 @@ super_kart_model_deployment/
 ```
 
 The backend loads `superkart_model.joblib` once at startup and exposes it
-over HTTP, with CORS enabled since the browser calls it directly. The
-frontend is a small four step wizard (native Web Components, no framework,
-no build step): pick single or batch, enter or upload data, review it, see
-the result. It derives the handful of engineered features the model
-expects from plain business inputs, entirely in the browser, and calls the
-backend with `fetch()`.
+over HTTP, with CORS enabled since the browser calls it directly. Every
+successful prediction is also recorded to a small SQLite file through
+`history_store.py`, so it can be reviewed later, not just in the tab that
+made it.
+
+The frontend is a small application (native Web Components, no framework,
+no build step) built around a four step wizard: pick single or batch,
+enter or upload data, review it, see the result. It derives the handful of
+engineered features the model expects from plain business inputs, entirely
+in the browser, and calls the backend with `fetch()`. A top navigation bar
+above the wizard adds four more pages, each addressable directly through
+the URL hash:
+
+- **History** (`#/history`): every prediction the backend has produced,
+  most recent first, with the exact input parameters behind each one, and
+  a way to clear everything stored.
+- **Docs** (`#/docs`): the workflow explained end to end, plus the API
+  reference below.
+- **Help** (`#/help`): frequently asked questions and a Model Details
+  section describing how the deployed model was built and how it performs.
+- **Contact** (`#/contact`): how to reach the project owner.
+
+The Batch Upload step also has a Sample CSV button, downloading a small
+file in the exact shape the API expects.
 
 ## The one thing to get right: BACKEND_URL
 
@@ -163,3 +182,14 @@ Returns `{"Product_Store_Sales_Total_Prediction": <number>}`.
 **`POST /v1/predictbatch`**, multipart CSV upload under the field name
 `file`, with the same columns as above. Returns a JSON object mapping each
 row's position to its prediction.
+
+**`GET /v1/history?limit=50`** returns the most recently recorded
+predictions, newest first, each with its full input and result.
+**`DELETE /v1/history`** clears all of them. Both back the History page in
+the frontend.
+
+Prediction history lives in `history.db`, a SQLite file created inside the
+backend container's own filesystem on first write. Recreating the backend
+container starts with empty history, a deliberate, zero-configuration
+default rather than a durability guarantee. Mount a volume at the
+backend's working directory if history needs to survive that.

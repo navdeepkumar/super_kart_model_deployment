@@ -1,3 +1,8 @@
 __pycache__/
 *.pyc
 .DS_Store
+# SQLite prediction history, a runtime artifact created by the backend on
+# first write, not source code
+*.db
+*.db-wal
+*.db-shm
