@@ -7,6 +7,23 @@ notebook or the raw data. Those live in the project's main repository.
 This one is meant to be opened directly in a GitHub Codespace (or run
 locally) and built into two Docker containers.
 
+## Live deployment
+
+The app is running right now in a GitHub Codespace, both containers built
+from this repository's `main` branch:
+
+- Frontend (start here): https://superkart-deploy-v7r5rgvjx9hpgg6-8501.app.github.dev
+- Backend API: https://superkart-deploy-v7r5rgvjx9hpgg6-7860.app.github.dev
+
+The first visit to either link shows a one-time GitHub notice about
+accessing a development port, this is normal, click Continue to reach the
+app. A Codespace stops itself after a period of inactivity to avoid
+burning hours needlessly. If the links above do not respond, the
+Codespace has likely gone to sleep and needs restarting from the
+[Codespaces list](https://github.com/codespaces), after which these same
+URLs work again, they stay tied to this Codespace as long as it is not
+deleted.
+
 ## What's in here
 
 ```
