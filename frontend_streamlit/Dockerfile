@@ -1,0 +1,18 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY app.py .
+
+EXPOSE 8501
+
+# Default backend hostname when running on a shared Docker network with the
+# backend container aliased as superkart-backend. Override with
+# docker run -e BACKEND_URL=... for a different setup, this is also editable
+# at runtime from the app's own sidebar without restarting the container.
+ENV BACKEND_URL="http://superkart-backend:7860"
+
+CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
