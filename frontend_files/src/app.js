@@ -365,19 +365,45 @@ class StepSingleForm extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         h2 { margin-top: 0; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 var(--space-5); }
-        @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+        .field-section {
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+          background: var(--color-bg);
+          padding: var(--space-4) var(--space-5);
+          margin-bottom: var(--space-5);
+        }
+        .section-header { display: flex; align-items: flex-start; gap: var(--space-3); margin-bottom: var(--space-4); }
+        .section-icon { font-size: 22px; line-height: 1; flex-shrink: 0; }
+        .section-header h3 { margin: 0 0 2px 0; font-size: 15px; }
+        .section-header p { margin: 0; }
+        .section-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 var(--space-5); }
+        .section-grid .full-width { grid-column: 1 / -1; }
+        @media (max-width: 640px) { .section-grid { grid-template-columns: 1fr; } }
         .actions { display: flex; justify-content: space-between; margin-top: var(--space-5); }
       </style>
       <div class="card">
         <h2>Product and store details</h2>
+        <p class="helper-text" style="margin-top: -8px; margin-bottom: var(--space-5);">
+          Fill in both sections below, then review everything on the next screen.
+        </p>
         <div id="error-slot"></div>
         <form id="single-form">
-          <div class="grid">
-            <div>
+          <section class="field-section">
+            <div class="section-header">
+              <span class="section-icon">&#128722;</span>
+              <div>
+                <h3>Product Details</h3>
+                <p class="helper-text">What is being sold, and at what price</p>
+              </div>
+            </div>
+            <div class="section-grid">
               <div class="field">
                 <label for="productType">Product Type</label>
                 <select id="productType">${PRODUCT_TYPES.map((t) => opt(t, d.productType || "Dairy")).join("")}</select>
+              </div>
+              <div class="field">
+                <label for="mrp">Product MRP</label>
+                <input id="mrp" type="number" min="0" step="0.01" value="${d.mrp ?? 117.08}" required>
               </div>
               <div class="field">
                 <label for="productWeight">Product Weight</label>
@@ -387,16 +413,27 @@ class StepSingleForm extends HTMLElement {
                 <label for="sugar">Product Sugar Content</label>
                 <select id="sugar">${SUGAR_CONTENT_OPTIONS.map((s) => opt(s, d.sugar || "Low Sugar")).join("")}</select>
               </div>
-              <div class="field">
-                <label for="area">Product Allocated Area (fraction of store display area)</label>
+              <div class="field full-width">
+                <label for="area">Product Allocated Area</label>
                 <input id="area" type="number" min="0" max="1" step="0.001" value="${d.area ?? 0.03}" required>
-              </div>
-              <div class="field">
-                <label for="mrp">Product MRP</label>
-                <input id="mrp" type="number" min="0" step="0.01" value="${d.mrp ?? 117.08}" required>
+                <p class="helper-text">Fraction of the store's total display area this product occupies, 0 to 1</p>
               </div>
             </div>
-            <div>
+          </section>
+
+          <section class="field-section">
+            <div class="section-header">
+              <span class="section-icon">&#127970;</span>
+              <div>
+                <h3>Store Details</h3>
+                <p class="helper-text">Which outlet this product is being sold at</p>
+              </div>
+            </div>
+            <div class="section-grid">
+              <div class="field">
+                <label for="storeType">Store Type</label>
+                <select id="storeType">${STORE_TYPE_OPTIONS.map((s) => opt(s, d.storeType || "Supermarket Type2")).join("")}</select>
+              </div>
               <div class="field">
                 <label for="storeSize">Store Size</label>
                 <select id="storeSize">${STORE_SIZE_OPTIONS.map((s) => opt(s, d.storeSize || "Medium")).join("")}</select>
@@ -406,15 +443,12 @@ class StepSingleForm extends HTMLElement {
                 <select id="cityTier">${CITY_TIER_OPTIONS.map((c) => opt(c, d.cityTier || "Tier 2")).join("")}</select>
               </div>
               <div class="field">
-                <label for="storeType">Store Type</label>
-                <select id="storeType">${STORE_TYPE_OPTIONS.map((s) => opt(s, d.storeType || "Supermarket Type2")).join("")}</select>
-              </div>
-              <div class="field">
                 <label for="year">Store Establishment Year</label>
                 <input id="year" type="number" min="1980" max="${CURRENT_YEAR}" step="1" value="${d.year ?? 2009}" required>
               </div>
             </div>
-          </div>
+          </section>
+
           <div class="actions">
             <button type="button" class="btn btn-secondary" id="back-btn">Back</button>
             <button type="submit" class="btn btn-primary">Review forecast &rarr;</button>
@@ -465,13 +499,13 @@ class StepSingleForm extends HTMLElement {
 
     const display = {
       "Product Type": productType,
+      "Product MRP": mrp,
       "Product Weight": productWeight,
       "Product Sugar Content": sugar,
       "Product Allocated Area": area,
-      "Product MRP": mrp,
+      "Store Type": storeType,
       "Store Size": storeSize,
       "Store Location City Type": cityTier,
-      "Store Type": storeType,
       "Store Establishment Year": year,
     };
 
