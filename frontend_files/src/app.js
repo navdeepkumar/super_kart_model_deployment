@@ -361,6 +361,10 @@ class StepSingleForm extends HTMLElement {
     withSharedStyles(this.shadowRoot);
     const d = this._prior || {};
     const opt = (value, selected) => `<option value="${value}" ${value === selected ? "selected" : ""}>${value}</option>`;
+    // Stored internally as a 0 to 1 fraction, the unit the model was trained
+    // on, but shown to the user as a percentage, which is what "how much of
+    // the store's display area" actually means to a person filling this in.
+    const areaPercent = Math.round((d.area ?? 0.03) * 1000) / 10;
 
     this.shadowRoot.innerHTML = `
       <style>
@@ -379,6 +383,11 @@ class StepSingleForm extends HTMLElement {
         .section-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 var(--space-5); }
         .section-grid .full-width { grid-column: 1 / -1; }
         @media (max-width: 640px) { .section-grid { grid-template-columns: 1fr; } }
+        .slider-row { display: flex; align-items: center; gap: var(--space-4); }
+        .slider-row input[type="range"] { flex: 1; accent-color: var(--color-primary); height: 4px; cursor: pointer; }
+        .percent-box { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+        .percent-box input { width: 64px; text-align: right; }
+        .percent-box span { font-size: 13px; color: var(--color-text-muted); font-weight: 600; }
         .actions { display: flex; justify-content: space-between; margin-top: var(--space-5); }
       </style>
       <div class="card">
@@ -414,9 +423,15 @@ class StepSingleForm extends HTMLElement {
                 <select id="sugar">${SUGAR_CONTENT_OPTIONS.map((s) => opt(s, d.sugar || "Low Sugar")).join("")}</select>
               </div>
               <div class="field full-width">
-                <label for="area">Product Allocated Area</label>
-                <input id="area" type="number" min="0" max="1" step="0.001" value="${d.area ?? 0.03}" required>
-                <p class="helper-text">Fraction of the store's total display area this product occupies, 0 to 1</p>
+                <label for="areaSlider">Product Allocated Area</label>
+                <div class="slider-row">
+                  <input type="range" id="areaSlider" min="0" max="100" step="0.1" value="${areaPercent}">
+                  <div class="percent-box">
+                    <input type="number" id="areaPercent" min="0" max="100" step="0.1" value="${areaPercent}" required>
+                    <span>%</span>
+                  </div>
+                </div>
+                <p class="helper-text">Percentage of the store's total display area this product occupies</p>
               </div>
             </div>
           </section>
@@ -465,6 +480,17 @@ class StepSingleForm extends HTMLElement {
       e.preventDefault();
       this._submit();
     });
+
+    // Slider and number box represent the same value, either one can drive it
+    const areaSlider = this.shadowRoot.getElementById("areaSlider");
+    const areaPercentInput = this.shadowRoot.getElementById("areaPercent");
+    areaSlider.addEventListener("input", () => {
+      areaPercentInput.value = areaSlider.value;
+    });
+    areaPercentInput.addEventListener("input", () => {
+      const value = Number(areaPercentInput.value);
+      if (!Number.isNaN(value)) areaSlider.value = Math.min(100, Math.max(0, value));
+    });
   }
 
   _submit() {
@@ -472,16 +498,22 @@ class StepSingleForm extends HTMLElement {
     const productType = $("productType").value;
     const productWeight = Number($("productWeight").value);
     const sugar = $("sugar").value;
-    const area = Number($("area").value);
+    const areaPercent = Number($("areaPercent").value);
+    const area = areaPercent / 100;
     const mrp = Number($("mrp").value);
     const storeSize = $("storeSize").value;
     const cityTier = $("cityTier").value;
     const storeType = $("storeType").value;
     const year = Number($("year").value);
 
-    if ([productWeight, area, mrp, year].some((v) => Number.isNaN(v))) {
+    if ([productWeight, areaPercent, mrp, year].some((v) => Number.isNaN(v))) {
       this.shadowRoot.getElementById("error-slot").innerHTML =
         `<div class="error-banner">Please fill in every numeric field with a valid number.</div>`;
+      return;
+    }
+    if (areaPercent < 0 || areaPercent > 100) {
+      this.shadowRoot.getElementById("error-slot").innerHTML =
+        `<div class="error-banner">Product Allocated Area must be between 0% and 100%.</div>`;
       return;
     }
 
@@ -502,7 +534,7 @@ class StepSingleForm extends HTMLElement {
       "Product MRP": mrp,
       "Product Weight": productWeight,
       "Product Sugar Content": sugar,
-      "Product Allocated Area": area,
+      "Product Allocated Area": `${areaPercent}%`,
       "Store Type": storeType,
       "Store Size": storeSize,
       "Store Location City Type": cityTier,
