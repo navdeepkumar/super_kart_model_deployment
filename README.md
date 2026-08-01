@@ -12,14 +12,16 @@ locally) and built into two Docker containers.
 The app is running right now in a GitHub Codespace, both containers built
 from this repository's `main` branch:
 
-- Frontend (start here): https://superkart-deploy-v7r5rgvjx9hpgg6-8501.app.github.dev
-- Backend API: https://superkart-deploy-v7r5rgvjx9hpgg6-7860.app.github.dev
+- Frontend (start here): https://superkart-deploy2-qg4x49q6w6h9x5v-8501.app.github.dev
+- Backend API: https://superkart-deploy2-qg4x49q6w6h9x5v-7860.app.github.dev
 
 The first visit to either link shows a one-time GitHub notice about
 accessing a development port, this is normal, click Continue to reach the
-app. A Codespace stops itself after a period of inactivity to avoid
-burning hours needlessly. If the links above do not respond, the
-Codespace has likely gone to sleep and needs restarting from the
+app. Both containers run with a `restart: unless-stopped` policy, so they
+come back on their own once the Codespace resumes. A Codespace stops
+itself after a period of inactivity to avoid burning hours needlessly.
+If the links above do not respond at all, the Codespace has likely gone
+to sleep for longer than its idle window and needs restarting from the
 [Codespaces list](https://github.com/codespaces), after which these same
 URLs work again, they stay tied to this Codespace as long as it is not
 deleted.
