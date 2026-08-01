@@ -1,30 +1,61 @@
 # SuperKart Sales Forecasting: Deployment Package
 
 This repository holds the deployable pieces of the SuperKart sales
-forecasting solution: a Flask API serving the trained model, and a Streamlit
-app for using it. It does not include the training notebook or the raw
-data. Those live in the project's main repository. This one is meant to be
-opened directly in a GitHub Codespace (or run locally) and built into two
-Docker containers.
+forecasting solution: a Flask API serving the trained model, and a Web
+Components frontend for using it. It does not include the training
+notebook or the raw data. Those live in the project's main repository.
+This one is meant to be opened directly in a GitHub Codespace (or run
+locally) and built into two Docker containers.
 
 ## What's in here
 
 ```
 super_kart_model_deployment/
 ├── backend_files/
-│   ├── app.py                    # Flask API: /v1/predict and /v1/predictbatch
+│   ├── app.py                    # Flask API: /v1/predict and /v1/predictbatch, CORS enabled
 │   ├── requirements.txt
 │   ├── Dockerfile
 │   └── superkart_model.joblib    # trained pipeline (preprocessing + model)
 └── frontend_files/
-    ├── app.py                    # Streamlit UI: single + batch prediction
-    ├── requirements.txt
-    └── Dockerfile
+    ├── index.html                # entry point
+    ├── env.js                    # default backend URL for local, no-Docker use
+    ├── src/
+    │   ├── tokens.css            # design tokens (colors, spacing, type)
+    │   └── app.js                # every custom element: wizard steps, <app-shell>, API client
+    ├── Dockerfile                # Nginx-based, static files only, no Node build step
+    ├── nginx.conf
+    └── docker-entrypoint.d/
+        └── 40-inject-backend-url.sh   # regenerates env.js from BACKEND_URL at container start
 ```
 
 The backend loads `superkart_model.joblib` once at startup and exposes it
-over HTTP. The frontend collects plain business inputs, derives the handful
-of engineered features the model expects, and calls the backend.
+over HTTP, with CORS enabled since the browser calls it directly. The
+frontend is a small four step wizard (native Web Components, no framework,
+no build step): pick single or batch, enter or upload data, review it, see
+the result. It derives the handful of engineered features the model
+expects from plain business inputs, entirely in the browser, and calls the
+backend with `fetch()`.
+
+## The one thing to get right: BACKEND_URL
+
+Because the frontend is now a static site that calls the backend directly
+from the browser, `BACKEND_URL` has to be a URL the **browser** can reach,
+not a Docker-internal hostname the two containers merely use to find each
+other:
+
+| Environment | BACKEND_URL value |
+|---|---|
+| No Docker | `http://127.0.0.1:7860` (already the default in `env.js`, nothing to set) |
+| Docker on your own machine | `http://localhost:7860`, the port published to the host |
+| GitHub Codespaces | the forwarded URL for the backend's port 7860, only known once that port is made public |
+
+If the wrong value is used, the app loads fine but every prediction fails
+with "Failed to fetch" in the browser. `docker-entrypoint.d/` regenerates
+`env.js` from this variable every time the frontend container starts, and
+the gear icon in the app's header can also change it at any time from
+inside the browser, no rebuild or restart needed, which is what makes the
+Codespaces case workable despite the forwarded URL not being known ahead
+of time.
 
 ## Option 1: Deploy in a GitHub Codespace (recommended)
 
@@ -36,37 +67,36 @@ of engineered features the model expects, and calls the backend.
    docker build -t superkart-backend  ./backend_files
    docker build -t superkart-frontend ./frontend_files
    ```
-3. Create a shared Docker network so the two containers can reach each
-   other by name:
+3. Create a shared Docker network and start the backend on it:
    ```bash
    docker network create superkart-network
+   docker run -d --name superkart-backend --network superkart-network -p 7860:7860 superkart-backend
    ```
-4. Run both containers on that network:
+4. Open the **Ports** tab in the Codespace, find port `7860`, set its
+   visibility to **Public**, and copy the forwarded URL shown there
+   (something like `https://<name>-7860.app.github.dev`).
+5. Start the frontend, pointed at that forwarded URL:
    ```bash
-   docker run -d --name superkart-backend  --network superkart-network -p 7860:7860 superkart-backend
-   docker run -d --name superkart-frontend --network superkart-network -p 8501:8501 superkart-frontend
+   docker run -d --name superkart-frontend --network superkart-network \
+     -p 8501:8501 -e BACKEND_URL="<paste the forwarded 7860 URL here>" superkart-frontend
    ```
-   The frontend's `Dockerfile` already points `BACKEND_URL` at
-   `http://superkart-backend:7860`, which resolves correctly because both
-   containers share the `superkart-network` network.
-5. Open the **Ports** tab in the Codespace, find port `7860`, and set its
-   visibility to **Public**. Do the same for port `8501` if you want to
-   share the UI, not just the API. Copy the forwarded URL(s) shown there.
-6. Use the app:
-   - Open the forwarded `8501` URL in a browser for the Streamlit UI.
-   - Or call the forwarded `7860` URL directly, for example:
-     ```bash
-     curl -X POST "<forwarded-7860-url>/v1/predict" \
-       -H "Content-Type: application/json" \
-       -d '{"Product_Weight": 12.66, "Product_Sugar_Content": "Low Sugar", "Product_Allocated_Area": 0.027, "Product_MRP": 117.08, "Store_Size": "Medium", "Store_Location_City_Type": "Tier 2", "Store_Type": "Supermarket Type2", "Product_Id_char": "FD", "Store_Age_Years": 16, "Product_Type_Category": "Non Perishables"}'
-     ```
+6. Set port `8501` to **Public** as well and open its forwarded URL in a
+   browser to use the app.
 7. When you are done, stop the Codespace from the Codespaces list on
    GitHub, or it will keep billing against your included usage.
 
 ## Option 2: Run with Docker on your own machine
 
-Same four commands as steps 2 to 4 above, run locally instead of inside a
-Codespace. Once both containers are up:
+```bash
+docker network create superkart-network
+docker build -t superkart-backend  ./backend_files
+docker build -t superkart-frontend ./frontend_files
+
+docker run -d --name superkart-backend --network superkart-network -p 7860:7860 superkart-backend
+docker run -d --name superkart-frontend --network superkart-network \
+  -p 8501:8501 -e BACKEND_URL="http://localhost:7860" superkart-frontend
+```
+
 - Backend: `http://localhost:7860`
 - Frontend: `http://localhost:8501`
 
@@ -74,7 +104,6 @@ Codespace. Once both containers are up:
 
 ```bash
 pip install -r backend_files/requirements.txt
-pip install -r frontend_files/requirements.txt
 ```
 
 ```bash
@@ -84,17 +113,14 @@ python backend_files/app.py
 ```
 
 ```bash
-# Terminal 2 (Windows PowerShell)
-$env:BACKEND_URL = "http://127.0.0.1:7860"
-streamlit run frontend_files/app.py
-
-# Terminal 2 (macOS / Linux)
-BACKEND_URL="http://127.0.0.1:7860" streamlit run frontend_files/app.py
+# Terminal 2, a plain static file server is enough for the frontend
+cd frontend_files
+python -m http.server 8501
 ```
 
-Streamlit opens `http://localhost:8501` in your browser. `BACKEND_URL`
-overrides the frontend's Docker-oriented default, which otherwise points at
-the hostname `superkart-backend` and would not resolve outside a container.
+Open `http://localhost:8501`. `frontend_files/env.js` already defaults to
+`http://127.0.0.1:7860`, so this works immediately with nothing else to
+configure.
 
 ## API reference
 

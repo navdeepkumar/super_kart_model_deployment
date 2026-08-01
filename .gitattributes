@@ -1,0 +1,7 @@
+# Normalizes line endings to LF for text and web assets, regardless of the
+# platform a contributor commits from. The shell script needs this
+# strictly, a shebang line saved with CRLF fails to execute in the
+# container it runs in.
+* text=auto eol=lf
+
+*.joblib binary

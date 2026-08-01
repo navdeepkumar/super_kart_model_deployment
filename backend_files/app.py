@@ -15,8 +15,16 @@ import os
 import joblib
 import pandas as pd
 from flask import Flask, jsonify, request
+from flask_cors import CORS
 
 superkart_api = Flask(__name__)
+
+# The frontend is a static site that calls this API directly from the
+# browser with fetch(), not through a Python server acting on its behalf,
+# so the browser enforces CORS on every request. Wide open here is
+# appropriate for this API: there is no session, cookie, or credential to
+# protect, every response is either a public prediction or an error.
+CORS(superkart_api)
 
 MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "superkart_model.joblib")
 model = joblib.load(MODEL_PATH)
