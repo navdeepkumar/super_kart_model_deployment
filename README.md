@@ -23,11 +23,17 @@ accessing a development port, this is normal, click Continue to reach the
 app. All three containers run with a `restart: unless-stopped` policy, so
 they come back on their own once the Codespace resumes. A Codespace stops
 itself after a period of inactivity to avoid burning hours needlessly.
+
 If the links above do not respond at all, the Codespace has likely gone
-to sleep for longer than its idle window and needs restarting from the
-[Codespaces list](https://github.com/codespaces), after which these same
-URLs work again, they stay tied to this Codespace as long as it is not
-deleted.
+to sleep for longer than its idle window. Resuming it is not quite enough
+on its own, port visibility resets to private on every stop even though
+the containers restart fine, so a plain restart from the
+[Codespaces list](https://github.com/codespaces) brings the app back up
+but leaves the URLs 404ing until the ports are made public again. Run
+[`scripts/resume_codespace.ps1`](scripts/resume_codespace.ps1) (needs the
+`gh` CLI, logged in) to do both steps at once, it resumes the Codespace if
+needed and republishes all three ports as public. These URLs stay tied to
+this Codespace as long as it is not deleted.
 
 ## What's in here
 
@@ -49,10 +55,14 @@ super_kart_model_deployment/
     ├── nginx.conf
     └── docker-entrypoint.d/
         └── 40-inject-backend-url.sh   # regenerates env.js from BACKEND_URL at container start
-└── frontend_streamlit/
-    ├── app.py                    # single prediction, batch prediction, history tabs
-    ├── requirements.txt
-    └── Dockerfile
+├── frontend_streamlit/
+│   ├── app.py                    # single prediction, batch prediction, history tabs
+│   ├── requirements.txt
+│   └── Dockerfile
+├── .devcontainer/
+│   └── devcontainer.json         # port labels and default forwards for this Codespace
+└── scripts/
+    └── resume_codespace.ps1      # one command Codespace resume plus port republish
 ```
 
 The backend loads `superkart_model.joblib` once at startup and exposes it
