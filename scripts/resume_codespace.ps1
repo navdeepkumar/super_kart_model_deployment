@@ -24,7 +24,7 @@
 #>
 
 param(
-    [string]$CodespaceName = "superkart-deploy2-qg4x49q6w6h9x5v"
+    [string]$CodespaceName = "superkart-deploy3-wj54597j97f5vjp"
 )
 
 $ErrorActionPreference = "Stop"

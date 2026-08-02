@@ -18,9 +18,9 @@ same backend and share the same prediction history, use either one:
   - Custom domain with a redirect pointed at the Codespace URL below, use it
     as the permanent link, only the redirect target needs to change if this
     Codespace is ever deleted and recreated. Direct Codespace URL:
-    https://superkart-deploy2-qg4x49q6w6h9x5v-8501.app.github.dev
-- Streamlit app: https://superkart-deploy2-qg4x49q6w6h9x5v-8502.app.github.dev
-- Backend API: https://superkart-deploy2-qg4x49q6w6h9x5v-7860.app.github.dev
+    https://superkart-deploy3-wj54597j97f5vjp-8501.app.github.dev
+- Streamlit app: https://superkart-deploy3-wj54597j97f5vjp-8502.app.github.dev
+- Backend API: https://superkart-deploy3-wj54597j97f5vjp-7860.app.github.dev
 
 The first visit to any of these links shows a one-time GitHub notice about
 accessing a development port, this is normal, click Continue to reach the
