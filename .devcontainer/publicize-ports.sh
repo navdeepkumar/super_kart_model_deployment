@@ -4,14 +4,24 @@
 # state that survives a stop, it resets to private each time, this script
 # puts it back to public without anyone having to run the gh CLI by hand.
 #
-# GITHUB_TOKEN and CODESPACE_NAME are provided by the Codespaces environment
-# itself for lifecycle scripts, no separate login step is required for them.
-set -uo pipefail
+# GITHUB_TOKEN and CODESPACE_NAME are expected to already be present in the
+# lifecycle command environment that Codespaces provides for this hook.
+# Everything is logged to a fixed path so a failure here can be diagnosed
+# after the fact instead of disappearing silently.
+LOG_FILE=/tmp/publicize-ports.log
+{
+  echo "=== publicize-ports.sh run at $(date -u) ==="
+  echo "CODESPACE_NAME=${CODESPACE_NAME:-<unset>}"
+  echo "GITHUB_TOKEN present: $([ -n "${GITHUB_TOKEN:-}" ] && echo yes || echo no)"
 
-echo "${GITHUB_TOKEN}" | gh auth login --with-token >/dev/null 2>&1
+  echo "${GITHUB_TOKEN}" | gh auth login --with-token
+  echo "auth login exit code: $?"
+  gh auth status
 
-for port in 7860 8501 8502; do
-  gh codespace ports visibility "${port}:public" -c "${CODESPACE_NAME}" >/dev/null 2>&1
-done
+  for port in 7860 8501 8502; do
+    gh codespace ports visibility "${port}:public" -c "${CODESPACE_NAME}"
+    echo "visibility ${port} exit code: $?"
+  done
 
-echo "Port visibility refresh attempted for 7860, 8501, 8502."
+  echo "=== done ==="
+} >>"${LOG_FILE}" 2>&1
