@@ -3,6 +3,7 @@
   "image": "mcr.microsoft.com/devcontainers/universal:2",
 
   "forwardPorts": [7860, 8501, 8502],
+  "postStartCommand": "bash .devcontainer/publicize-ports.sh",
   "portsAttributes": {
     "7860": {
       "label": "Backend API (Flask)",
