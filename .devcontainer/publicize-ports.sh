@@ -14,14 +14,18 @@ LOG_FILE=/tmp/publicize-ports.log
   echo "CODESPACE_NAME=${CODESPACE_NAME:-<unset>}"
   echo "GITHUB_TOKEN present: $([ -n "${GITHUB_TOKEN:-}" ] && echo yes || echo no)"
 
-  echo "${GITHUB_TOKEN}" | gh auth login --with-token
-  echo "auth login exit code: $?"
-  gh auth status
+  if [ -z "${GITHUB_TOKEN:-}" ] || [ -z "${CODESPACE_NAME:-}" ]; then
+    echo "Skipping, GITHUB_TOKEN or CODESPACE_NAME is not available in this session."
+  else
+    echo "${GITHUB_TOKEN}" | gh auth login --with-token
+    echo "auth login exit code: $?"
+    gh auth status
 
-  for port in 7860 8501 8502; do
-    gh codespace ports visibility "${port}:public" -c "${CODESPACE_NAME}"
-    echo "visibility ${port} exit code: $?"
-  done
+    for port in 7860 8501 8502; do
+      gh codespace ports visibility "${port}:public" -c "${CODESPACE_NAME}"
+      echo "visibility ${port} exit code: $?"
+    done
+  fi
 
   echo "=== done ==="
 } >>"${LOG_FILE}" 2>&1
