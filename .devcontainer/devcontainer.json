@@ -1,0 +1,23 @@
+{
+  "name": "SuperKart Deployment",
+  "image": "mcr.microsoft.com/devcontainers/universal:2",
+
+  "forwardPorts": [7860, 8501, 8502],
+  "portsAttributes": {
+    "7860": {
+      "label": "Backend API (Flask)",
+      "visibility": "public",
+      "onAutoForward": "silent"
+    },
+    "8501": {
+      "label": "Web Components UI",
+      "visibility": "public",
+      "onAutoForward": "silent"
+    },
+    "8502": {
+      "label": "Streamlit UI",
+      "visibility": "public",
+      "onAutoForward": "silent"
+    }
+  }
+}
